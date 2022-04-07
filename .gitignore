@@ -1,0 +1,14 @@
+# deps
+node_modules/
+
+# lock files
+*.lock
+
+# error files
+yarn-error.log
+
+# don't commit h5 files
+*.h5*
+
+# mac based index files
+.DS_Store

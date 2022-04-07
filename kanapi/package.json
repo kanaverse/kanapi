@@ -1,0 +1,39 @@
+{
+  "name": "kanapi",
+  "version": "0.0.1",
+  "description": "API layer for bakana",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "test": "node tests/analyze.test.js",
+    "start": "node --experimental-vm-modules --experimental-wasm-threads app.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jkanche/kanapi.git"
+  },
+  "keywords": [
+    "api",
+    "backend",
+    "kana",
+    "single-cell"
+  ],
+  "author": {
+    "name": "Jayaram Kancherla",
+    "email": "jayaram.kancherla@gmail.com",
+    "url": "https://www.jkanche.com"
+  },
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/jkanche/kanapi/issues"
+  },
+  "homepage": "https://github.com/jkanche/kanapi#readme",
+  "dependencies": {
+    "bakana": "^0.1.0",
+    "uWebSockets.js": "uNetworking/uWebSockets.js#v20.6.0"
+  },
+  "devDependencies": {
+    "jest": "^27.5.1",
+    "ws": "^8.5.0"
+  }
+}
