@@ -292,7 +292,7 @@ export class Dispatch {
             let resp = {};
             try {
                 resp.status = "SUCCESS";
-                resp.details = bakana.validateAnnotations(payload.inputs.files);
+                resp.details = await bakana.validateAnnotations(payload.inputs.files);
             } catch (e) {
                 resp.status = "ERROR";
                 resp.reason = e.toString();

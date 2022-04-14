@@ -6,7 +6,7 @@
   "module": "index.js",
   "type": "module",
   "scripts": {
-    "test": "node tests/load.analysis.test.js && node tests/save.analysis.test.js && node tests/run.analysis.tests.js",
+    "test": "node tests/load.test.js && node tests/save.test.js && node tests/run.test.js && node tests/preflight.test.js",
     "start": "node --experimental-vm-modules run.js"
   },
   "repository": {

@@ -9,6 +9,7 @@ yarn-error.log
 
 # don't commit h5 files
 *.h5*
+*.kana
 
 # mac based index files
 .DS_Store

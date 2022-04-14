@@ -13,6 +13,9 @@ export function create_app(port = 8000) {
         // options
     });
 
+    // Initialize bakana first, if not nothing is going to work 
+    // so no point in setting up anything
+    // This happens once per start
     initialize(Math.round(os.cpus().length * 2 / 3))
         .then(() => {
             app.get('/ping', (res, req) => {
@@ -79,11 +82,6 @@ export function create_app(port = 8000) {
 
     return app;
 }
-
-
-// Initialize bakana first, if not nothing is going to work 
-// so no point in setting up anything
-// This happens once per start
 
 export function format_msg(obj) {
     return Buffer.from(JSON.stringify(obj));

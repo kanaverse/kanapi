@@ -47,7 +47,7 @@ ws.on('message', async (data) => {
 
     // writing my own error checks
     if ((!resp instanceof Object) || (!"type" in resp) ||
-        ("error" in resp) || (resp["type"].toLowerCase().indexOf() != -1)) {
+        ("error" in resp) || (resp["type"].toLowerCase().indexOf("error") != -1)) {
         console.log("error at step", resp["type"])
         process.abort();
     }
@@ -143,4 +143,5 @@ ws.on('error', (err) => {
     /* We simply ignore errors. websockets/ws will call our close handler
      * on errors, potentially before even calling the open handler */
     console.error(err);
+    process.abort();
 });

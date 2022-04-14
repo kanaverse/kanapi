@@ -21,18 +21,11 @@ ws.on('open', () => {
     /* Mark this socket as opened */
     ws._opened = true;
     ws.send(Buffer.from(JSON.stringify({
-        "type": "RUN",
+        "type": "LOAD",
         "payload": {
             "inputs": {
-                "files": {
-                    "dataset-1": {
-                        "format": "H5AD",
-                        "h5": "./zeisel.h5ad"
-                    }
-                },
-                "batch": null
-            },
-            "params": null
+                "file": "./analysis.kana"
+            }
         }
     })));
 });
@@ -45,7 +38,7 @@ ws.on('message', async (data) => {
 
     // writing my own error checks
     if ((!resp instanceof Object) || (!"type" in resp) ||
-        ("error" in resp) || (resp["type"].toLowerCase().indexOf() != -1)) {
+        ("error" in resp) || (resp["type"].toLowerCase().indexOf("error") != -1)) {
         console.log("error at step", resp["type"])
         process.abort();
     }
@@ -53,7 +46,6 @@ ws.on('message', async (data) => {
     // after all anlysis responses come back
     if (msgCount == 14) {
         delay(1000);
-
         ws.send(Buffer.from(JSON.stringify({
             "type": "EXPORT",
             "payload": {}
@@ -73,4 +65,5 @@ ws.on('error', (err) => {
     /* We simply ignore errors. websockets/ws will call our close handler
      * on errors, potentially before even calling the open handler */
     console.error(err);
+    process.abort();
 });
