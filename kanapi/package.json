@@ -6,8 +6,8 @@
   "module": "index.js",
   "type": "module",
   "scripts": {
-    "test": "node tests/analyze.test.js",
-    "start": "node --experimental-vm-modules --experimental-wasm-threads app.js"
+    "test": "node tests/load.analysis.test.js && node tests/save.analysis.test.js && node tests/run.analysis.tests.js",
+    "start": "node --experimental-vm-modules run.js"
   },
   "repository": {
     "type": "git",
