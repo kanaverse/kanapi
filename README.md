@@ -1,8 +1,8 @@
 # Kanapi - API layer to analyze single cell RNA-seq analysis
 
-kanapi adds an API layer to [bakana](https://github.com/LTLA/bakana). This allows [Kana](https://github.com/jkanche/kana) to not only perform single cell analysis both client-side and also in backend environments (like node as in this case).
+kanapi adds an API layer to [bakana](https://github.com/LTLA/bakana). This allows [Kana](https://github.com/jkanche/kana) to not only perform single cell analysis client-side but also in backend environments (node in this case).
 
-Kanapi uses web sockets to communicate analysis state and results between the application and the server. Since we use WebSocket protocol, we loose type information when sending information from the server to client, but a future version will create a custom response format (that uses ArrayBuffers). Currently all JSON is encoded as string and sent to the client. (or migrate to gRPC #good-first-task).
+Kanapi uses web sockets to communicate analysis state and results between Kana and the server. Since we use WebSocket protocol, we loose type information when sending information from the server to client, but a future version will create a custom response format (based on ArrayBuffers). Currently all JSON is encoded as string and sent to the client. (or migrate to gRPC #good-first-task).
 
 ## Usage
 
