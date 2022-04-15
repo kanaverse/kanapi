@@ -1,18 +1,11 @@
 import * as bakana from "bakana";
 import os from "os";
 import * as path from 'path';
-import { mkdtemp } from 'fs/promises';
-import { generateRandomName } from "./utils.js";
+import {
+    generateRandomName, extractBuffers, mergeBuffers,
+    kanapiWriter
+} from "./utils.js";
 import process from "process";
-
-/**
- * wrapper for bakana's initialize
- * 
- * @return A promise
- */
-export async function initialize(numberOfThreads) {
-    return await bakana.initialize({ numberOfThreads: numberOfThreads, localFile: true });
-}
 
 /**
  * handles all message handling with websockets
@@ -67,7 +60,12 @@ export class Dispatch {
      * @return the message object
      */
     getMsg() {
-        return this.#pending.shift();
+        let msg = this.#pending.shift();
+        var buffer = [], extracted = {};
+        extractBuffers(msg, buffer, extracted);
+        let merged_buffers = mergeBuffers(buffer);
+        let msg_buffer = kanapiWriter(merged_buffers, extracted);
+        return msg_buffer;
     }
 
     /**
@@ -306,8 +304,6 @@ export class Dispatch {
             /**************** OTHER EVENTS FROM UI *******************/
         } else if (type == "getMarkersForCluster") {
             const { cluster, rank_type } = payload;
-            // console.log("getMarkersForCluster", Object.keys(this.#state));
-            // console.log(payload);
             if (!this.#state) {
                 this.#pending.push({
                     type: "analysis_ERROR",
@@ -322,9 +318,6 @@ export class Dispatch {
             }
 
         } else if (type == "getGeneExpression") {
-            // console.log("getGeneExpression", Object.keys(this.#state));
-            // console.log(payload);
-
             const row_idx = payload.gene;
             if (!this.#state) {
                 this.#pending.push({
@@ -342,8 +335,6 @@ export class Dispatch {
                 });
             }
         } else if (type == "computeCustomMarkers") {
-            // console.log("computeCustomMarkers", Object.keys(this.#state));
-            // console.log(payload);
             const { id, selection } = payload;
 
             if (!this.#state) {
@@ -359,9 +350,6 @@ export class Dispatch {
             }
         } else if (type == "getMarkersForSelection") {
             const { cluster, rank_type } = payload;
-            // console.log("getMarkersForSelection", Object.keys(this.#state));
-            // console.log(payload);
-
             if (!this.#state) {
                 this.#pending.push({
                     type: "analysis_ERROR",
@@ -377,9 +365,6 @@ export class Dispatch {
             }
         } else if (type == "removeCustomMarkers") {
             const { id } = payload;
-            // console.log("removeCustomMarkers", Object.keys(this.#state));
-            // console.log(payload);
-
             if (!this.#state) {
                 this.#pending.push({
                     type: "analysis_ERROR",
@@ -393,9 +378,6 @@ export class Dispatch {
                 });
             }
         } else if (type == "animateTSNE") {
-            // console.log("animateTSNE", Object.keys(this.#state));
-            // console.log(payload);
-
             if (!this.#state) {
                 this.#pending.push({
                     type: "analysis_ERROR",
@@ -405,9 +387,6 @@ export class Dispatch {
                 await this.#state.tsne.animate();
             }
         } else if (type == "animateUMAP") {
-            // console.log("animateUMAP", Object.keys(this.#state));
-            // console.log(payload);
-
             if (!this.#state) {
                 this.#pending.push({
                     type: "analysis_ERROR",
@@ -417,8 +396,6 @@ export class Dispatch {
                 await this.#state.umap.animate();
             }
         } else if (type == "getAnnotation") {
-            // console.log("getAnnotation", Object.keys(this.#state));
-            // console.log(payload);
             const { annotation, unfiltered } = payload;
 
             if (!this.#state) {

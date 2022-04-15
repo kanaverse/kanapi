@@ -1,7 +1,8 @@
 // using example from uWebSockets
 import WebSocket from 'ws';
 // import * as uWS from "uWebSockets.js";
-import { create_app } from "../app.js";
+import { create_app } from "../src/app.js";
+import { kanapiReader } from '../src/utils.js';
 import { Buffer } from 'buffer';
 import process from "process";
 
@@ -15,7 +16,9 @@ create_app(port);
 
 await delay(1000);
 let msgCount = 0;
-const ws = new WebSocket('ws://localhost:' + port);
+const ws = new WebSocket('ws://localhost:' + port, {
+    skipUTF8Validation: true
+});
 
 ws.on('open', () => {
     /* Mark this socket as opened */
@@ -37,8 +40,7 @@ ws.on('open', () => {
 
 /* It seems you can get messages after close?! */
 ws.on('message', async (data) => {
-    let resp = JSON.parse(data.toString());
-    console.log("CLIENT RCV:", resp["type"]);
+    const resp = kanapiReader(data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength));
     msgCount++;
 
     // writing my own error checks

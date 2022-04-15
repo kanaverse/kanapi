@@ -3,7 +3,8 @@ import process from "process";
 import { Buffer } from 'buffer';
 import * as os from "os";
 
-import { Dispatch, initialize } from "./Dispatch.js";
+import { Dispatch } from "./Dispatch.js";
+import { initialize } from "./utils.js";
 
 const backpressure = 1024 * 1024;
 let sessions = 0;
@@ -41,7 +42,7 @@ export function create_app(port = 8000) {
                         if (ws.getBufferedAmount() < backpressure && ws["dataset"].getPendingLength() > 0) {
                             const msg_to_send = ws["dataset"].getMsg();
                             if (msg_to_send) {
-                                ws.send(format_msg(msg_to_send));
+                                ws.send(msg_to_send);
                             }
                         }
                     }, 100);
@@ -55,11 +56,10 @@ export function create_app(port = 8000) {
                 },
                 message: async (ws, message, isBinary) => {
                     const decoded = Buffer.from(message);
-                    // console.log("SERVER RCV:", JSON.parse(decoded.toString()));
                     ws["dataset"].dispatch(JSON.parse(decoded.toString()))
                         .catch(err => {
                             // so it doesn't crash the entire instance
-                            console.log(err);
+                            console.error(err);
                             ws.send(format_msg({
                                 "type": "error",
                                 "error": err.toString()

@@ -12,7 +12,9 @@ Kanapi uses web sockets to communicate analysis state and results between Kana a
   node kanapi/run.js
 ```
 
-This should usually run the api on port 8000.
+**_Read on msg formats at the end of this documentation_**
+
+This should usually run the api on port 8000 unless specified.
 
 As with any websocket based API, we send a payload to the server, the server performs an action and sends one/many responses to the client.
 
@@ -80,6 +82,8 @@ After running the analysis above, you might want to store the results and the an
 
 **_an environment variable `OUTPATH` species this location. If not, we store files in the tmp directory and the path is returned back as the response._**
 
+These operations are documented both in the [bakana docs](https://github.com/LTLA/bakana) and the [tests directory](./kanapi/tests/) of this repository.
+
 ```json
 {
   "type": "EXPORT"
@@ -100,4 +104,22 @@ For interactions with the analysis results/state
 - animateUMAP
 - getAnnotation
 
-A number of these are documented both in the [bakana docs](https://github.com/LTLA/bakana) and the [tests directory](./kanapi/tests/) of this repository.
+## Message Format
+
+The responses from the server can contain one or more `TypedArrays` and `ArrayBuffers`. When we transfer these JSON objects to the client, we loose the type information during serialization. To mitigate this loss of type, we extract and merge all `TypedArrays` and `ArrayBuffers` from the `Message` into a single `Data Buffer`. We also rememeber the offset and position of each of these so that we can replace the extracted buffers client side. We then wrap this in a `ArrayBuffer` and transfer this information to the client. The format is as follows - 
+
+### Format Specification
+
+- Header (16 bytes)
+  - MAGIC - 8 bytes, the magic code is kanapi
+  - version - 1 byte, specifies the current version of the format
+  - endianness - 1 byte, 0 if little endian else 1
+  - buffer_offset - offset in the file where the data buffer starts
+  - reserved - 2 bytes, for future use. also to make header conform to 16 bytes.
+- Message
+  - The response object encoded as `ArrayBuffer`.
+- Data Buffer
+  - All `TypedArrays` and `ArrayBuffers` extracted from the message
+
+[utils](./kanapi/src/utils.js) contains methods `kanapiWriter` and `kanapiReader` to write and parse messages in these formats.
+
