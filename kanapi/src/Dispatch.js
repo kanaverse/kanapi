@@ -1,18 +1,11 @@
 import * as bakana from "bakana";
 import os from "os";
 import * as path from 'path';
-import { mkdtemp } from 'fs/promises';
-import { generateRandomName } from "./utils.js";
+import {
+    generateRandomName, extractBuffers, mergeBuffers,
+    kanapiWriter
+} from "./utils.js";
 import process from "process";
-
-/**
- * wrapper for bakana's initialize
- * 
- * @return A promise
- */
-export async function initialize(numberOfThreads) {
-    return await bakana.initialize({ numberOfThreads: numberOfThreads, localFile: true });
-}
 
 /**
  * handles all message handling with websockets
@@ -67,7 +60,13 @@ export class Dispatch {
      * @return the message object
      */
     getMsg() {
-        return this.#pending.shift();
+        let msg = this.#pending.shift();
+        var buffer = [], extracted = {};
+        console.log(msg);
+        extractBuffers(msg, buffer, extracted);
+        let merged_buffers = mergeBuffers(buffer);
+        let msg_buffer = kanapiWriter(merged_buffers, extracted);
+        return msg_buffer;
     }
 
     /**

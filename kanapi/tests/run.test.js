@@ -1,7 +1,8 @@
 // using example from uWebSockets
 import WebSocket from 'ws';
 // import * as uWS from "uWebSockets.js";
-import { create_app } from "../app.js";
+import { create_app } from "../src/app.js";
+import { kanapiReader } from '../src/utils.js';
 import { Buffer } from 'buffer';
 import process from "process";
 
@@ -17,7 +18,9 @@ create_app(port);
 
 await delay(1000);
 let msgCount = 0;
-const ws = new WebSocket('ws://localhost:' + port);
+const ws = new WebSocket('ws://localhost:' + port, {
+    skipUTF8Validation: true
+});
 
 ws.on('open', () => {
     /* Mark this socket as opened */
@@ -41,8 +44,7 @@ ws.on('open', () => {
 
 /* It seems you can get messages after close?! */
 ws.on('message', async (data) => {
-    let resp = JSON.parse(data.toString());
-    console.log("CLIENT RCV:", resp["type"]);
+    const resp = kanapiReader(data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength));
     msgCount++;
 
     // writing my own error checks
@@ -54,7 +56,7 @@ ws.on('message', async (data) => {
 
     // after all anlysis responses come back
     if (msgCount == 14) {
-        delay(1000);
+        delay(2000);
 
         ws.send(Buffer.from(JSON.stringify({
             "type": "getMarkersForCluster",
@@ -66,7 +68,7 @@ ws.on('message', async (data) => {
     }
 
     if (msgCount == 15) {
-        await delay(1000);
+        await delay(2000);
 
         ws.send(Buffer.from(JSON.stringify({
             "type": "getGeneExpression",
@@ -77,7 +79,7 @@ ws.on('message', async (data) => {
     }
 
     if (msgCount == 16) {
-        await delay(1000);
+        await delay(2000);
 
         ws.send(Buffer.from(JSON.stringify({
             "type": "computeCustomMarkers",
@@ -89,7 +91,7 @@ ws.on('message', async (data) => {
     }
 
     if (msgCount == 17) {
-        await delay(1000);
+        await delay(2000);
 
         ws.send(Buffer.from(JSON.stringify({
             "type": "getMarkersForSelection",
@@ -101,7 +103,7 @@ ws.on('message', async (data) => {
     }
 
     if (msgCount == 18) {
-        await delay(1000);
+        await delay(2000);
 
         ws.send(Buffer.from(JSON.stringify({
             "type": "removeCustomMarkers",
@@ -112,7 +114,7 @@ ws.on('message', async (data) => {
     }
 
     if (msgCount == 19) {
-        await delay(1000);
+        await delay(2000);
 
         ws.send(Buffer.from(JSON.stringify({
             "type": "getAnnotation",
@@ -123,7 +125,7 @@ ws.on('message', async (data) => {
     }
 
     if (msgCount == 20) {
-        await delay(1000);
+        await delay(2000);
 
         ws.send(Buffer.from(JSON.stringify({
             "type": "animateTSNE",
