@@ -8,4 +8,4 @@ RUN npm install
 COPY ./kanapi /kanapi
 
 EXPOSE 8000
-CMD ["npm", "start"]
+CMD ["node", "run.js"]

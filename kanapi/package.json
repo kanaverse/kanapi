@@ -3,10 +3,11 @@
   "version": "0.0.1",
   "description": "API layer for bakana",
   "main": "index.js",
+  "module": "index.js",
   "type": "module",
   "scripts": {
-    "test": "node tests/analyze.test.js",
-    "start": "node --experimental-vm-modules --experimental-wasm-threads app.js"
+    "test": "node tests/load.test.js && node tests/save.test.js && node tests/run.test.js && node tests/preflight.test.js",
+    "start": "node --experimental-vm-modules run.js"
   },
   "repository": {
     "type": "git",
@@ -29,10 +30,13 @@
   },
   "homepage": "https://github.com/jkanche/kanapi#readme",
   "dependencies": {
-    "bakana": "^0.1.0",
+    "bakana": "^0.2.3",
     "uWebSockets.js": "uNetworking/uWebSockets.js#v20.6.0"
   },
   "devDependencies": {
+    "@babel/core": "^7.17.9",
+    "@babel/preset-env": "^7.16.11",
+    "babel-jest": "^27.5.1",
     "jest": "^27.5.1",
     "ws": "^8.5.0"
   }

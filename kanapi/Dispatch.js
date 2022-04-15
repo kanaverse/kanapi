@@ -1,8 +1,9 @@
 import * as bakana from "bakana";
 import os from "os";
 import * as path from 'path';
-import { mkdtemp } from "fs/promises";
+import { mkdtemp } from 'fs/promises';
 import { generateRandomName } from "./utils.js";
+import process from "process";
 
 /**
  * wrapper for bakana's initialize
@@ -86,25 +87,42 @@ export class Dispatch {
         bakana.freeAnalysis(this.#state);
     }
 
+    async createAnalysis() {
+        this.#state = await bakana.createAnalysis();
+
+        bakana.setVisualizationAnimate((type, x, y, iter) => {
+            this.#pending.push({
+                type: `${type}_iter`,
+                resp: {
+                    "x": x,
+                    "y": y,
+                    "iteration": iter
+                }
+            });
+        })
+    }
+
     /**
      * Run an analysis 
      * 
      * @param {Object} message payload
      */
     async runAnalysis(message) {
-        let { files, params } = message;
-        this.#state = await bakana.createAnalysis();
+        let { inputs, params } = message;
 
         if (!params) {
             params = bakana.analysisDefaults();
         }
 
-        // TODO: do i really need an await here
-        await bakana.runAnalysis(this.#state,
-            files,
+        if (!this.#state) {
+            this.#state = await bakana.createAnalysis();
+        }
+
+        bakana.runAnalysis(this.#state,
+            inputs.files,
             params,
             {
-                finishFun: async (step, results) => {
+                finishFun: (step, results) => {
                     // convert data into a more appropriate structure that stores types
                     this.#pending.push({
                         "type": `${step}_DATA`,
@@ -121,21 +139,73 @@ export class Dispatch {
      * @param {Object} message payload
      */
     async loadAnalysis(message) {
-        // TODO: not sure how to do this, but sure
-        // TODO: do i really need an await here
-        // await bakana.loadAnalysis(file,
-        //     "loadfunc",
-        //     {
-        //         finishFun: async (step, results) => {
-        //             console.log("finished", step);
-        //             console.log(this.#pending.length);
-        //             this.#pending.push(Buffer.from(JSON.stringify({
-        //                 "type": `${step}_data`,
-        //                 "resp": results
-        //             })));
-        //         }
-        //     }
-        // );
+        let fname = generateRandomName("#state_", ".h5")
+        let h5path = path.join(os.tmpdir(), fname)
+        let output = {};
+        try {
+            let loader = await bakana.parseKanaFile(message.inputs.file, h5path);
+            let response = await bakana.loadAnalysis(h5path, loader, {
+                finishFun: async (step, results) => {
+                    this.#pending.push({
+                        "type": `${step}_DATA`,
+                        "resp": results
+                    });
+                }
+            });
+
+            if (this.#state !== null) {
+                await bakana.freeAnalysis(this.#state);
+            }
+            this.#state = response.state;
+
+            let params = response.parameters;
+            output = {
+                inputs: {
+                    "batch": params.inputs.sample_factor
+                },
+                qc: {
+                    "qc-usemitodefault": params.quality_control.use_mito_default,
+                    "qc-mito": params.quality_control.mito_prefix,
+                    "qc-nmads": params.quality_control.nmads
+                },
+                fSelection: {
+                    "fsel-span": params.feature_selection.span
+                },
+                pca: {
+                    "pca-hvg": params.pca.num_hvgs,
+                    "pca-npc": params.pca.num_pcs,
+                    "pca-correction": params.pca.block_method
+                },
+                cluster: {
+                    "clus-approx": params.neighbor_index.approximate,
+                    "kmeans-k": params.kmeans_cluster.k,
+                    "clus-k": params.snn_graph_cluster.k,
+                    "clus-scheme": params.snn_graph_cluster.scheme,
+                    "clus-res": params.snn_graph_cluster.resolution,
+                    "clus-method": params.choose_clustering.method
+                },
+                tsne: {
+                    "tsne-perp": params.tsne.perplexity,
+                    "tsne-iter": params.tsne.iterations,
+                    "animate": params.tsne.animate
+                },
+                umap: {
+                    "umap-epochs": params.umap.num_epochs,
+                    "umap-nn": params.umap.num_neighbors,
+                    "umap-min_dist": params.umap.min_dist,
+                    "animate": params.umap.animate
+                },
+                annotateCells: {
+                    "annotateCells-human_references": params.cell_labelling.human_references,
+                    "annotateCells-mouse_references": params.cell_labelling.mouse_references
+                },
+                custom_selections: params.custom_selections
+            }
+        } finally {
+            bakana.removeHDF5File(h5path);
+        }
+
+        return output;
     }
 
     /**
@@ -144,13 +214,15 @@ export class Dispatch {
      * @param {Object} message payload
      */
     async saveAnalysis(message) {
-        // TODO: check paths; currently dumps to tmp
         let fname = generateRandomName("#state_", ".h5")
-        console.log(fname);
+        let outpath = process.env.OUTPATH;
+
+        if (!outpath) {
+            outpath = os.tmpdir();
+        }
 
         try {
-            let tmpdir = path.join(os.tmpdir(), fname)
-            await mkdtemp(tmpdir);
+            let outfile = path.join(outpath, fname)
 
             if (!this.#state) {
                 this.#pending.push({
@@ -158,14 +230,18 @@ export class Dispatch {
                     error: "nothing to save, run or load an analysis first"
                 });
             } else {
-                
-                await bakana.saveAnalysis(this.#state, tmpdir, {
+
+                let serialized = await bakana.saveAnalysis(this.#state, outfile, {
                     embedded: true
                 });
 
+                let output = await bakana.createKanaFile(outfile, serialized.collected);
+
                 this.#pending.push({
                     type: "export_DATA",
-                    data: `file saved to ${tmpdir}`
+                    resp: {
+                        "outpath": output
+                    }
                 });
             }
         } catch (err) {
@@ -182,9 +258,9 @@ export class Dispatch {
      * @param {Object} message payload
      */
     async dispatch(message) {
-        let { data } = message;
-        if (message.type == "RUN") {
-            this.runAnalysis(data)
+        const { type, payload } = message;
+        if (type == "RUN") {
+            this.runAnalysis(payload)
                 .catch(err => {
                     this.#pending.push({
                         type: "run_ERROR",
@@ -192,9 +268,9 @@ export class Dispatch {
                     })
                 });
             /**************** LOADING EXISTING ANALYSES *******************/
-        } else if (message.type == "LOAD") {
+        } else if (type == "LOAD") {
             // load a dataset on the server
-            this.loadAnalysis(data)
+            this.loadAnalysis(payload)
                 .catch(err => {
                     this.#pending.push({
                         type: "load_ERROR",
@@ -202,49 +278,61 @@ export class Dispatch {
                     })
                 });
             /**************** SAVING EXISTING ANALYSES *******************/
-        } else if (message.type == "EXPORT") {
+        } else if (type == "EXPORT") {
             // create tmp directory
-            this.saveAnalysis(data)
+            this.saveAnalysis(payload)
                 .catch(err => {
                     this.#pending.push({
                         type: "export_ERROR",
                         error: err.toString()
                     })
                 })
-        } else if (message.type == "PREFLIGHT_INPUT") {
+        } else if (type == "PREFLIGHT_INPUT") {
             // do something here for batches
-            // TODO:
+            let resp = {};
+            try {
+                resp.status = "SUCCESS";
+                resp.details = await bakana.validateAnnotations(payload.inputs.files);
+            } catch (e) {
+                resp.status = "ERROR";
+                resp.reason = e.toString();
+            }
+
+            this.#pending.push({
+                type: "PREFLIGHT_INPUT_DATA",
+                resp: resp,
+                msg: "Success: PREFLIGHT_INPUT done"
+            });
             /**************** OTHER EVENTS FROM UI *******************/
-        } else if (message.type == "getMarkersForCluster") {
-            const { cluster, rank_type } = data;
-            console.log("getMarkersForCluster", Object.keys(this.#state));
-            console.log(data);
+        } else if (type == "getMarkersForCluster") {
+            const { cluster, rank_type } = payload;
+            // console.log("getMarkersForCluster", Object.keys(this.#state));
+            // console.log(payload);
             if (!this.#state) {
                 this.#pending.push({
                     type: "analysis_ERROR",
                     error: "run or load an analysis first"
                 });
             } else {
-                const resp = this.#state["marker_detection"].fetchGroupResults(rank_type, cluster);
+                const resp = this.#state.marker_detection.fetchGroupResults(cluster, rank_type);
                 this.#pending.push({
                     type: "setMarkersForCluster",
                     resp: resp,
                 });
             }
 
-        } else if (message.type == "getGeneExpression") {
-            console.log("getGeneExpression", Object.keys(this.#state));
-            console.log(data);
+        } else if (type == "getGeneExpression") {
+            // console.log("getGeneExpression", Object.keys(this.#state));
+            // console.log(payload);
 
-            const row_idx = data.gene;
+            const row_idx = payload.gene;
             if (!this.#state) {
                 this.#pending.push({
                     type: "analysis_ERROR",
                     error: "run or load an analysis first"
                 });
             } else {
-                console.log(this.#state);
-                const vec = this.#state["normalizaton"].fetchExpression(row_idx);
+                const vec = this.#state.normalization.fetchExpression(row_idx);
                 this.#pending.push({
                     type: "setGeneExpression",
                     resp: {
@@ -253,10 +341,10 @@ export class Dispatch {
                     }
                 });
             }
-        } else if (message.type == "computeCustomMarkers") {
-            console.log("computeCustomMarkers", Object.keys(this.#state));
-            console.log(data);
-            const { id, selection } = data;
+        } else if (type == "computeCustomMarkers") {
+            // console.log("computeCustomMarkers", Object.keys(this.#state));
+            // console.log(payload);
+            const { id, selection } = payload;
 
             if (!this.#state) {
                 this.#pending.push({
@@ -264,15 +352,15 @@ export class Dispatch {
                     error: "run or load an analysis first"
                 });
             } else {
-                this.#state["custom_selections"].addSelection(id, selection);
+                this.#state.custom_selections.addSelection(id, selection);
                 this.#pending.push({
                     type: "computeCustomMarkers"
                 });
             }
-        } else if (message.type == "getMarkersForSelection") {
-            const { cluster, rank_type } = data;
-            console.log("getMarkersForSelection", Object.keys(this.#state));
-            console.log(data);
+        } else if (type == "getMarkersForSelection") {
+            const { cluster, rank_type } = payload;
+            // console.log("getMarkersForSelection", Object.keys(this.#state));
+            // console.log(payload);
 
             if (!this.#state) {
                 this.#pending.push({
@@ -280,16 +368,17 @@ export class Dispatch {
                     error: "run or load an analysis first"
                 });
             } else {
-                const resp = this.#state["custom_selections"].fetchResults(cluster, rank_type);
+                let rtype = rank_type.replace(/-.*/, ""); // summary type doesn't matter for pairwise comparisons.
+                const resp = this.#state.custom_selections.fetchResults(cluster, rtype);
                 this.#pending.push({
                     type: "setMarkersForCustomSelection",
                     resp: resp
                 });
             }
-        } else if (message.type == "removeCustomMarkers") {
-            const { id } = data;
-            console.log("removeCustomMarkers", Object.keys(this.#state));
-            console.log(data);
+        } else if (type == "removeCustomMarkers") {
+            const { id } = payload;
+            // console.log("removeCustomMarkers", Object.keys(this.#state));
+            // console.log(payload);
 
             if (!this.#state) {
                 this.#pending.push({
@@ -297,15 +386,15 @@ export class Dispatch {
                     error: "run or load an analysis first"
                 });
             } else {
-                const resp = this.#state["custom_selections"].removeSelection(id);
+                const resp = this.#state.custom_selections.removeSelection(id);
                 this.#pending.push({
                     type: "setRemoveCustomMarkers",
                     resp: resp
                 });
             }
-        } else if (message.type == "animateTSNE") {
-            console.log("animateTSNE", Object.keys(this.#state));
-            console.log(data);
+        } else if (type == "animateTSNE") {
+            // console.log("animateTSNE", Object.keys(this.#state));
+            // console.log(payload);
 
             if (!this.#state) {
                 this.#pending.push({
@@ -313,22 +402,11 @@ export class Dispatch {
                     error: "run or load an analysis first"
                 });
             } else {
-                bakana.setVisualizationAnimate((x, y, i) => {
-                    this.#pending.push({
-                        type: "tsne_iter",
-                        resp: {
-                            "x": x,
-                            "y": y,
-                            "iterations": i
-                        }
-                    });
-                });
-
-                await this.#state["tsne"].animate();
+                await this.#state.tsne.animate();
             }
-        } else if (message.type == "animateUMAP") {
-            console.log("animateUMAP", Object.keys(this.#state));
-            console.log(data);
+        } else if (type == "animateUMAP") {
+            // console.log("animateUMAP", Object.keys(this.#state));
+            // console.log(payload);
 
             if (!this.#state) {
                 this.#pending.push({
@@ -336,22 +414,12 @@ export class Dispatch {
                     error: "run or load an analysis first"
                 });
             } else {
-                bakana.setVisualizationAnimate((x, y, i) => {
-                    this.#pending.push({
-                        type: "umap_iter",
-                        resp: {
-                            "x": x,
-                            "y": y,
-                            "iterations": i
-                        }
-                    });
-                })
-                await this.#state["umap"].animate();
+                await this.#state.umap.animate();
             }
-        } else if (message.type == "getAnnotation") {
-            console.log("getAnnotation", Object.keys(this.#state));
-            console.log(data);
-            const { annotation, unfiltered } = data;
+        } else if (type == "getAnnotation") {
+            // console.log("getAnnotation", Object.keys(this.#state));
+            // console.log(payload);
+            const { annotation, unfiltered } = payload;
 
             if (!this.#state) {
                 this.#pending.push({
@@ -359,27 +427,19 @@ export class Dispatch {
                     error: "run or load an analysis first"
                 });
             } else {
-                const vec = this.#state["inputs"].fetchAnnotations(annot);
-
+                let vec;
                 // Filter to match QC unless requested otherwise.
                 if (unfiltered !== false) {
-                    var discard = new Set(this.#state["quality_control"].fetchDiscards());
-                    let filterfun = (x, i) => !discard.has(i);
-                    if ("factor" in vec) {
-                        vec.factor = vec.factor.filter(filterfun);
-                    } else {
-                        vec = vec.filter(filterfun);
-                    }
+                    vec = this.#state.quality_control.fetchFilteredAnnotations(annotation);
+                } else {
+                    vec = this.#state.inputs.fetchAnnotations(annotation);
                 }
 
                 this.#pending.push({
                     type: "setAnnotation",
                     resp: {
-                        annotation: annot,
-                        values: {
-                            "index": vec.index,
-                            "factor": vec.factor
-                        }
+                        annotation: annotation,
+                        values: vec
                     }
                 });
             }
