@@ -110,18 +110,18 @@ export function mergeBuffers(buffers) {
  * @param json: the json response to send.
  * 
  * fmt specification:
- *  header -> json ->  data buffers
- *      header : 16 bytes
- *          MAGIC - 8 bytes - magic code (kanapi)
- *          format version - 1 byte - (specifices version of the format)
- *          endiannes - 1 byte - 0 if little endian else 1
- *          data_offset - offset to the file where the array buffer starts - 4 bytes
- *          reserved - 2 bytes - for future use
- *      response: json from the server encoded as an arraybuffer. This is a two step process. 
- *          First, we extract any array buffer based objects from the json object.
- *          we put them in the buffers array (next section of this file) and hold a reference.
- *              for each extracted buffer - offset, length and type are captured here.
- *      buffers: the array buffers extracted and merged from the response.
+ * Header -> Message -> Buffers
+ * - Header (16 bytes)
+ *   - MAGIC - 8 bytes, the magic code is kanapi
+ *   - version - 1 byte, specifies the current version of the format
+ *   - endianness - 1 byte, 0 if little endian else 1
+ *   - buffer_offset - offset in the file where the data buffer starts
+ *   - reserved - 2 bytes, for future use. also to make header conform to 16 bytes.
+ * - Message
+ *   - The response object encoded as `ArrayBuffer`. 
+ * - Data Buffer
+ *   - All `TypedArrays` and `ArrayBuffers` extracted from the message
+ * 
  * @return an ArrayBuffer
  */
 export function kanapiWriter(buffers, json) {
@@ -210,15 +210,29 @@ export function replaceBuffers(object, buffer, replaced) {
  */
 export function kanapiReader(buffer) {
     const dv = new DataView(buffer);
+    let utf8decoder = new TextDecoder(); // default 'utf-8' or 'utf8'
+
     // extract the header
     const header = buffer.slice(0, 16);
-    const magic = new Uint8Array(header.slice(0, 8));
+    const magic_bytes = new Uint8Array(header.slice(0, 6));
+    const magic = utf8decoder.decode(magic_bytes);
+
+    if (String(magic) != "kanapi") {
+        console.error(`msg format ${magic} not supported`)
+        throw `msg format ${magic} not supported`;
+    }
     const endian_bytes = dv.getUint8(9);
     const endian = endian_bytes == 1 ? true : false;
+    const version = dv.getUint8(8);
+
+    if (version !== 1) {
+        console.error(`version ${version} not supported`)
+        throw `version ${version} not supported`;
+    }
 
     const data_offset = dv.getUint32(10, endian);
     const msg_slice = buffer.slice(16, data_offset);
-    let utf8decoder = new TextDecoder(); // default 'utf-8' or 'utf8'
+    
     const msg = JSON.parse(utf8decoder.decode(msg_slice));
     const data_buffer = buffer.slice(data_offset);
 
