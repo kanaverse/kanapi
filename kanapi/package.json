@@ -30,7 +30,7 @@
   },
   "homepage": "https://github.com/jkanche/kanapi#readme",
   "dependencies": {
-    "bakana": "^0.2.3",
+    "bakana": "^0.3.4",
     "uWebSockets.js": "uNetworking/uWebSockets.js#v20.6.0"
   },
   "devDependencies": {
