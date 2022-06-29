@@ -6,6 +6,7 @@ import {
     kanapiWriter
 } from "./utils.js";
 import process from "process";
+import * as translate from './translate.js';
 
 /**
  * handles all message handling with websockets
@@ -110,6 +111,8 @@ export class Dispatch {
 
         if (!params) {
             params = bakana.analysisDefaults();
+        } else {
+            params = translate.fromUI(inputs, params);
         }
 
         if (!this.#state) {
@@ -156,54 +159,7 @@ export class Dispatch {
             }
             this.#state = response.state;
 
-            // TODO: fix.
-            let params = response.parameters;
-            output = {
-                inputs: {
-                    "batch": params.inputs.sample_factor
-                },
-                qc: {
-                    "qc-usemitodefault": params.quality_control.use_mito_default,
-                    "qc-mito": params.quality_control.mito_prefix,
-                    "qc-nmads": params.quality_control.nmads
-                },
-                fSelection: {
-                    "fsel-span": params.feature_selection.span
-                },
-                pca: {
-                    "pca-hvg": params.pca.num_hvgs,
-                    "pca-npc": params.pca.num_pcs,
-                    "pca-correction": params.pca.block_method
-                },
-                cluster: {
-                    "kmeans-k": params.kmeans_cluster.k,
-                    "clus-k": params.snn_graph_cluster.k,
-                    "clus-scheme": params.snn_graph_cluster.scheme,
-                    "clus-res": params.snn_graph_cluster.resolution,
-                    "clus-method": params.choose_clustering.method
-                },
-                tsne: {
-                    "tsne-perp": params.tsne.perplexity,
-                    "tsne-iter": params.tsne.iterations,
-                    "animate": params.tsne.animate
-                },
-                umap: {
-                    "umap-epochs": params.umap.num_epochs,
-                    "umap-nn": params.umap.num_neighbors,
-                    "umap-min_dist": params.umap.min_dist,
-                    "animate": params.umap.animate
-                },
-                annotateCells: {
-                    "annotateCells-human_references": params.cell_labelling.human_references,
-                    "annotateCells-mouse_references": params.cell_labelling.mouse_references
-                },
-                custom_selections: params.custom_selections,
-                adt_qualitycontrol: params.adt_quality_control,
-                adt_pca:params.adt_pca,
-                adt_normalization: params.adt_normalization,
-                combine_embeddings: params.combine_embeddings,
-                batch_correction: params.batch_correction
-            }
+            output = translate.toUI(response.parameters);
         } finally {
             bakana.removeHDF5File(h5path);
         }
