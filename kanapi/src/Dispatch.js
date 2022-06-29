@@ -156,6 +156,7 @@ export class Dispatch {
             }
             this.#state = response.state;
 
+            // TODO: fix.
             let params = response.parameters;
             output = {
                 inputs: {
@@ -175,7 +176,6 @@ export class Dispatch {
                     "pca-correction": params.pca.block_method
                 },
                 cluster: {
-                    "clus-approx": params.neighbor_index.approximate,
                     "kmeans-k": params.kmeans_cluster.k,
                     "clus-k": params.snn_graph_cluster.k,
                     "clus-scheme": params.snn_graph_cluster.scheme,
@@ -197,7 +197,12 @@ export class Dispatch {
                     "annotateCells-human_references": params.cell_labelling.human_references,
                     "annotateCells-mouse_references": params.cell_labelling.mouse_references
                 },
-                custom_selections: params.custom_selections
+                custom_selections: params.custom_selections,
+                adt_qualitycontrol: params.adt_quality_control,
+                adt_pca:params.adt_pca,
+                adt_normalization: params.adt_normalization,
+                combine_embeddings: params.combine_embeddings,
+                batch_correction: params.batch_correction
             }
         } finally {
             bakana.removeHDF5File(h5path);
@@ -303,14 +308,14 @@ export class Dispatch {
             });
             /**************** OTHER EVENTS FROM UI *******************/
         } else if (type == "getMarkersForCluster") {
-            const { cluster, rank_type } = payload;
             if (!this.#state) {
                 this.#pending.push({
                     type: "analysis_ERROR",
                     error: "run or load an analysis first"
                 });
             } else {
-                const resp = this.#state.marker_detection.fetchGroupResults(cluster, rank_type);
+                const { cluster, rank_type, feat_type } = payload;
+                const resp = this.#state.marker_detection.fetchGroupResults(cluster, rank_type, feat_type);
                 this.#pending.push({
                     type: "setMarkersForCluster",
                     resp: resp,
@@ -318,14 +323,24 @@ export class Dispatch {
             }
 
         } else if (type == "getGeneExpression") {
-            const row_idx = payload.gene;
             if (!this.#state) {
                 this.#pending.push({
                     type: "analysis_ERROR",
                     error: "run or load an analysis first"
                 });
             } else {
-                const vec = this.#state.normalization.fetchExpression(row_idx);
+                const row_idx = payload.gene;
+                let modality = payload.modality.toLowerCase()
+
+                var vec;
+                if (modality === "rna") {
+                    vec = this.#state.normalization.fetchExpression(row_idx);
+                } else if (modality === "adt") {
+                    vec = this.#state.adt_normalization.fetchExpression(row_idx);
+                } else {
+                    throw new Error("unknown feature type '" + modality + "'");
+                }
+
                 this.#pending.push({
                     type: "setGeneExpression",
                     resp: {
@@ -335,29 +350,28 @@ export class Dispatch {
                 });
             }
         } else if (type == "computeCustomMarkers") {
-            const { id, selection } = payload;
-
             if (!this.#state) {
                 this.#pending.push({
                     type: "analysis_ERROR",
                     error: "run or load an analysis first"
                 });
             } else {
+                const { id, selection } = payload;
                 this.#state.custom_selections.addSelection(id, selection);
                 this.#pending.push({
                     type: "computeCustomMarkers"
                 });
             }
         } else if (type == "getMarkersForSelection") {
-            const { cluster, rank_type } = payload;
             if (!this.#state) {
                 this.#pending.push({
                     type: "analysis_ERROR",
                     error: "run or load an analysis first"
                 });
             } else {
+                const { cluster, rank_type, feat_type } = payload;
                 let rtype = rank_type.replace(/-.*/, ""); // summary type doesn't matter for pairwise comparisons.
-                const resp = this.#state.custom_selections.fetchResults(cluster, rtype);
+                const resp = this.#state.custom_selections.fetchResults(cluster, rtype, feat_type);
                 this.#pending.push({
                     type: "setMarkersForCustomSelection",
                     resp: resp
