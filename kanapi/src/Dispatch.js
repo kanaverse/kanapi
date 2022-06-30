@@ -286,7 +286,7 @@ export class Dispatch {
                 });
             } else {
                 const row_idx = payload.gene;
-                let modality = payload.modality.toLowerCase()
+                let modality = payload.feat_type.toLowerCase()
 
                 var vec;
                 if (modality === "rna") {
@@ -377,7 +377,7 @@ export class Dispatch {
                 let vec;
                 // Filter to match QC unless requested otherwise.
                 if (unfiltered !== false) {
-                    vec = this.#state.quality_control.fetchFilteredAnnotations(annotation);
+                    vec = this.#state.cell_filtering.fetchFilteredAnnotations(annotation);
                 } else {
                     vec = this.#state.inputs.fetchAnnotations(annotation);
                 }

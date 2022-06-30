@@ -62,7 +62,8 @@ ws.on('message', async (data) => {
             "type": "getMarkersForCluster",
             "payload": {
                 "cluster": 0,
-                "rank_type": "cohen-min-rank"
+                "rank_type": "cohen-min-rank",
+                "feat_type": "RNA"
             }
         })));
     }
@@ -73,7 +74,8 @@ ws.on('message', async (data) => {
         ws.send(Buffer.from(JSON.stringify({
             "type": "getGeneExpression",
             "payload": {
-                "gene": 100
+                "gene": 100,
+                "feat_type": "RNA"
             }
         })));
     }
@@ -97,7 +99,8 @@ ws.on('message', async (data) => {
             "type": "getMarkersForSelection",
             "payload": {
                 "cluster": "custom-selection-1",
-                "rank_type": "cohen-min-rank"
+                "rank_type": "cohen-min-rank",
+                "feat_type": "RNA"
             }
         })));
     }
